@@ -48,7 +48,7 @@ void luna_rq_init(struct rq *rq, uint8_t *buffer, uint32_t capacity, uint32_t si
 	rq->capacity    = capacity;
 	rq->elem_size   = LUNA_ALIGN_UP(size, sizeof(uintptr_t));
 
-	rq->base        = LUNA_ALIGN_UP((uintptr_t)buffer, sizeof(uintptr_t));
+	rq->base        = (uint8_t *)LUNA_ALIGN_UP((uintptr_t)buffer, sizeof(uintptr_t));
 	rq->w = rq->r   = rq->base;
 	uint32_t number = (buffer + capacity - rq->base) / rq->elem_size;
 	rq->end         = rq->base + rq->elem_size * number;
