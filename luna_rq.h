@@ -32,6 +32,7 @@ bool luna_rq_push(struct rq *rq, const uint8_t *data);
 bool luna_rq_is_empty(const struct rq *rq);
 bool luna_rq_is_full(const struct rq *rq);
 
+void luna_rq_reset(struct rq *rq);
 #endif
 
 #ifdef LUNA_RQ_IMPLEMENTATION
@@ -105,6 +106,12 @@ bool luna_rq_is_full(const struct rq *rq)
 		w = rq->base;
 	}
 	return w == rq->r;
+}
+
+void luna_rq_reset(struct rq *rq)
+{
+	LUNA_ASSERT(rq);
+	rq->w = rq->r = rq->base;
 }
 
 #endif
