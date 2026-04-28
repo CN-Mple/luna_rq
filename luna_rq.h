@@ -32,7 +32,9 @@ bool luna_rq_push(struct rq *rq, const uint8_t *data);
 bool luna_rq_is_empty(const struct rq *rq);
 bool luna_rq_is_full(const struct rq *rq);
 
+uint32_t luna_rq_count(const struct rq *rq);
 void luna_rq_reset(struct rq *rq);
+
 #endif
 
 #ifdef LUNA_RQ_IMPLEMENTATION
@@ -50,8 +52,11 @@ void luna_rq_init(struct rq *rq, uint8_t *buffer, uint32_t capacity, uint32_t si
 	rq->elem_size   = LUNA_ALIGN_UP(size, sizeof(uintptr_t));
 
 	rq->base        = (uint8_t *)LUNA_ALIGN_UP((uintptr_t)buffer, sizeof(uintptr_t));
+	LUNA_ASSERT(rq->base < buffer + capacity);
 	rq->w = rq->r   = rq->base;
 	uint32_t number = (buffer + capacity - rq->base) / rq->elem_size;
+	LUNA_ASSERT(number >= 2);
+
 	rq->end         = rq->base + rq->elem_size * number;
 }
 
@@ -106,6 +111,15 @@ bool luna_rq_is_full(const struct rq *rq)
 		w = rq->base;
 	}
 	return w == rq->r;
+}
+
+uint32_t luna_rq_count(const struct rq *rq)
+{
+	LUNA_ASSERT(rq);
+	if (rq->w >= rq->r) {
+		return (rq->w - rq->r) / rq->elem_size;
+	}
+	return (rq->end - rq->r + rq->w - rq->base) / rq->elem_size;
 }
 
 void luna_rq_reset(struct rq *rq)
