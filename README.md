@@ -1,1 +1,3 @@
-# luna_queue
+# luna_rq
+
+luna ring_queue
