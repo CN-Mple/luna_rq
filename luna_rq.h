@@ -8,20 +8,21 @@
 
 #ifndef LUNA_ASSERT
 #include <assert.h>
-#define LUNA_ASSERT			assert
+#define LUNA_ASSERT                     assert
 #endif
 
-#define LUNA_ALIGN_UP(x, align)		(((x) + (align) - 1) & ~((align) - 1))
-#define LUNA_ALIGN_DOWN(x, align)	((x) & ~((align) - 1))
+#define LUNA_ALIGN_UP(x, align)         (((x) + (align) - 1) & ~((align) - 1))
+#define LUNA_ALIGN_DOWN(x, align)       ((x) & ~((align) - 1))
 
 struct rq {
-	uint8_t  *buffer;
-	uint32_t  capacity;
-	uint32_t  elem_size;
-	uint8_t  *base;
-	uint8_t  *w;
-	uint8_t  *r;
-	uint8_t  *end;
+        uint8_t  *buffer;
+        uint32_t  capacity;
+        uint32_t  raw_size;
+        uint32_t  blk_size;
+        uint8_t  *start;
+        uint8_t  *w;
+        uint8_t  *r;
+        uint8_t  *end;
 };
 
 void luna_rq_init(struct rq *rq, uint8_t *buffer, uint32_t capacity, uint32_t size);
@@ -41,92 +42,93 @@ void luna_rq_reset(struct rq *rq);
 
 void luna_rq_init(struct rq *rq, uint8_t *buffer, uint32_t capacity, uint32_t size)
 {
-	LUNA_ASSERT(rq);
-	LUNA_ASSERT(buffer);
-	LUNA_ASSERT(size > 0);
-	LUNA_ASSERT(capacity > 0);
-	LUNA_ASSERT(size <= capacity);
+        LUNA_ASSERT(rq);
+        LUNA_ASSERT(buffer);
+        LUNA_ASSERT(size > 0);
+        LUNA_ASSERT(capacity > 0);
+        LUNA_ASSERT(size <= capacity);
 
-	rq->buffer      = buffer;
-	rq->capacity    = capacity;
-	rq->elem_size   = LUNA_ALIGN_UP(size, sizeof(uintptr_t));
+        rq->buffer      = buffer;
+        rq->capacity    = capacity;
+        rq->raw_size    = size;
+        rq->blk_size    = LUNA_ALIGN_UP(size, sizeof(uintptr_t));
 
-	rq->base        = (uint8_t *)LUNA_ALIGN_UP((uintptr_t)buffer, sizeof(uintptr_t));
-	LUNA_ASSERT(rq->base < buffer + capacity);
-	rq->w = rq->r   = rq->base;
-	uint32_t number = (buffer + capacity - rq->base) / rq->elem_size;
-	LUNA_ASSERT(number >= 2);
+        rq->start       = (uint8_t *)LUNA_ALIGN_UP((uintptr_t)buffer, sizeof(uintptr_t));
+        LUNA_ASSERT(rq->start < buffer + capacity);
+        rq->w = rq->r   = rq->start;
 
-	rq->end         = rq->base + rq->elem_size * number;
+        uint32_t number = (buffer + capacity - rq->start) / rq->blk_size;
+        LUNA_ASSERT(number >= 2);
+
+        rq->end         = rq->start + rq->blk_size * number;
 }
 
 bool luna_rq_pop(struct rq *rq, uint8_t *data)
 {
-	LUNA_ASSERT(rq);
-	LUNA_ASSERT(data);
+        LUNA_ASSERT(rq);
+        LUNA_ASSERT(data);
 
-	if (luna_rq_is_empty(rq)) {
-		return false;
-	}
+        if (luna_rq_is_empty(rq)) {
+                return false;
+        }
 
-	uint8_t *src = rq->r;
-	memcpy(data, src, rq->elem_size);
+        uint8_t *src = rq->r;
+        memcpy(data, src, rq->raw_size);
 
-	rq->r += rq->elem_size;
-	if (rq->r >= rq->end) {
-		rq->r = rq->base;
-	}
-	return true;
+        rq->r += rq->blk_size;
+        if (rq->r >= rq->end) {
+                rq->r = rq->start;
+        }
+        return true;
 }
 
 bool luna_rq_push(struct rq *rq, const uint8_t *data)
 {
-	LUNA_ASSERT(rq);
-	LUNA_ASSERT(data);
+        LUNA_ASSERT(rq);
+        LUNA_ASSERT(data);
 
-	if (luna_rq_is_full(rq)) {
-		return false;
-	}
-	uint8_t *dst = rq->w;
-	memcpy(dst, data, rq->elem_size);
+        if (luna_rq_is_full(rq)) {
+                return false;
+        }
+        uint8_t *dst = rq->w;
+        memcpy(dst, data, rq->raw_size);
 
-	rq->w += rq->elem_size;
-	if (rq->w >= rq->end) {
-		rq->w = rq->base;
-	}
-	return true;
+        rq->w += rq->blk_size;
+        if (rq->w >= rq->end) {
+                rq->w = rq->start;
+        }
+        return true;
 }
 
 bool luna_rq_is_empty(const struct rq *rq)
 {
-	LUNA_ASSERT(rq);
-	return rq->r == rq->w;
+        LUNA_ASSERT(rq);
+        return rq->r == rq->w;
 }
 
 bool luna_rq_is_full(const struct rq *rq)
 {
-	LUNA_ASSERT(rq);
-	uint8_t *w = rq->w + rq->elem_size;
-	if (w >= rq->end) {
-		w = rq->base;
-	}
-	return w == rq->r;
+        LUNA_ASSERT(rq);
+        uint8_t *w = rq->w + rq->blk_size;
+        if (w >= rq->end) {
+                w = rq->start;
+        }
+        return w == rq->r;
 }
 
 uint32_t luna_rq_count(const struct rq *rq)
 {
-	LUNA_ASSERT(rq);
-	if (rq->w >= rq->r) {
-		return (rq->w - rq->r) / rq->elem_size;
-	}
-	return (rq->end - rq->r + rq->w - rq->base) / rq->elem_size;
+        LUNA_ASSERT(rq);
+        if (rq->w >= rq->r) {
+                return (rq->w - rq->r) / rq->blk_size;
+        }
+        return (rq->end - rq->r + rq->w - rq->start) / rq->blk_size;
 }
 
 void luna_rq_reset(struct rq *rq)
 {
-	LUNA_ASSERT(rq);
-	rq->w = rq->r = rq->base;
+        LUNA_ASSERT(rq);
+        rq->w = rq->r = rq->start;
 }
 
 #endif
-
